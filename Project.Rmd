@@ -1,0 +1,232 @@
+---
+title: "Project"
+author: "Bowen He"
+date: "11/20/2017"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+#Import Data and do some change
+knitr::opts_chunk$set(echo = TRUE)
+library('readxl')
+Data<-read_xlsx("Data.xlsx",1)
+Data_Modify<-Data[,-c(2,6,8,10)]
+colnames(Data_Modify)[2]<-"DC"
+colnames(Data_Modify)[3]<-"CH"
+colnames(Data_Modify)[4]<-"CD"
+colnames(Data_Modify)[8]<-"LC"
+colnames(Data_Modify)[9]<-"HU"
+colnames(Data_Modify)[10]<-"MD"
+colnames(Data_Modify)[5]<-"FT"
+colnames(Data_Modify)[6]<-"CL"
+colnames(Data_Modify)[7]<-"Mod"
+Data_Modify$FT<-as.factor(Data_Modify$FT)
+Data_Modify$CL<-as.factor(Data_Modify$CL)
+Data_Modify$Mod<-as.factor(Data_Modify$Mod)
+Data_Modify$LC<-as.factor(Data_Modify$LC)
+Data_Modify$HU<-as.factor(Data_Modify$HU)
+Data_Modify$MeltdownNC<-as.factor(Data_Modify$MeltdownNC)
+Data_Modify
+```
+
+```{r echo=FALSE}
+# ANOVA test using chi-sqi
+glm.fits0<-glm(MeltdownNC~1,data=Data_Modify,family = binomial)
+glm.fits1<-glm(MeltdownNC~Data_Modify$DC,data=Data_Modify,family = binomial)
+anova(glm.fits0,glm.fits1,test="Chisq")
+glm.fits2<-glm(MeltdownNC~Data_Modify$CH,data=Data_Modify,family = binomial)
+anova(glm.fits0,glm.fits2,test="Chisq")
+glm.fits3<-glm(MeltdownNC~Data_Modify$CD,data=Data_Modify,family = binomial)
+anova(glm.fits0,glm.fits3,test="Chisq")
+glm.fits4<-glm(MeltdownNC~Data_Modify$FT,data=Data_Modify,family = binomial)
+anova(glm.fits0,glm.fits4,test="Chisq")
+glm.fits5<-glm(MeltdownNC~Data_Modify$CL,data=Data_Modify,family = binomial)
+anova(glm.fits0,glm.fits5,test="Chisq")
+glm.fits6<-glm(MeltdownNC~Data_Modify$Mod,data=Data_Modify,family = binomial)
+anova(glm.fits0,glm.fits6,test="Chisq")
+glm.fits7<-glm(MeltdownNC~Data_Modify$LC,data=Data_Modify,family = binomial)
+anova(glm.fits0,glm.fits7,test="Chisq")
+glm.fits8<-glm(MeltdownNC~Data_Modify$HU,data=Data_Modify,family = binomial)
+anova(glm.fits0,glm.fits8,test="Chisq")
+```
+
+```{r echo=FALSE}
+#Logistic Regression with 95% significance
+glm.fits<-glm(MeltdownNC~CH+CD+relevel(FT,ref=5)+relevel(CL,ref = 4)+LC+HU,data=Data_Modify,family = binomial)
+summary(glm.fits)
+coef(glm.fits)
+summary(glm.fits)$coef
+odds.ratio<-exp(coef(glm.fits))
+odds.ratio
+library('pscl')
+pR2(glm.fits)
+anova(glm.fits,update(glm.fits, ~1),test="Chisq")
+```
+
+```{r echo=FALSE}
+# test on the origin data
+glm.probs=predict(glm.fits,Data_Modify,type = "response")
+glm.pred=rep("Meltdown",50)
+glm.pred[glm.probs<0.5]="None"
+table(glm.pred, Data_Modify$MD)
+mean(glm.pred==Data_Modify$MD)
+#plot the ROC curve
+library('pROC')
+roc(Data_Modify$MeltdownNC,glm.probs,auc = TRUE)
+plot(roc(Data_Modify$MeltdownNC,glm.probs),legacy.axes = TRUE)
+#LR1<-plot(roc(Data_Modify$MD,glm.probs),legacy.axes = TRUE)
+```
+```{r echo=FALSE}
+#Logistic Regression with 98% significance
+glm.fits1<-glm(MeltdownNC~CH++relevel(CL,ref=4)+LC+HU,data=Data_Modify,family = binomial)
+summary(glm.fits1)
+coef(glm.fits1)
+summary(glm.fits1)$coef
+odds.ratio<-exp(coef(glm.fits1))
+odds.ratio
+library('pscl')
+pR2(glm.fits1)
+anova(glm.fits1,update(glm.fits1, ~1),test="Chisq")
+```
+```{r echo=FALSE}
+# test on the origin data
+glm.probs1=predict(glm.fits1,type = "response")
+glm.pred1=rep("Meltdown",50)
+glm.pred1[glm.probs1<0.5]="None"
+table(glm.pred1, Data_Modify$MD)
+mean(glm.pred1==Data_Modify$MD)
+# plot the ROC curve
+roc(Data_Modify$MeltdownNC,glm.probs1,auc = TRUE)
+plot(roc(Data_Modify$MeltdownNC,glm.probs1),legacy.axes = TRUE)
+#LR2<-plot(roc(Data_Modify$MD,glm.probs1),legacy.axes = TRUE)
+```
+
+```{r echo=FALSE}
+#LDA with 95% significance
+library(MASS)
+lda.fit=lda(MeltdownNC~CH+CD+relevel(FT,ref=5)+relevel(CL,ref = 4)+LC+HU,data=Data_Modify)
+lda.fit
+plot(lda.fit)
+lda.pred=predict(lda.fit, Data_Modify)
+#lda.pred$posterior
+lda.class<-lda.pred$class
+table(lda.class,Data_Modify$MeltdownNC)
+mean(lda.class==Data_Modify$MeltdownNC)
+# plot the ROC curve
+library('pROC')
+roc(Data_Modify$MD,lda.pred$posterior[,1],auc = TRUE)
+plot(roc(Data_Modify$MeltdownNC,lda.pred$posterior[,1]),legacy.axes = TRUE)
+#LDA1<-plot(roc(Data_Modify$MD,lda.pred$posterior[,1]),legacy.axes = TRUE)
+```
+
+```{r echo=FALSE}
+#LDA with 98% significance
+library(MASS)
+lda.fit1=lda(MeltdownNC~CH+relevel(CL,ref = 4)+LC+HU,data=Data_Modify)
+lda.fit1
+plot(lda.fit1)
+lda.pred1=predict(lda.fit1, Data_Modify)
+lda.class1<-lda.pred1$class
+table(lda.class1,Data_Modify$MeltdownNC)
+mean(lda.class1==Data_Modify$MeltdownNC)
+#plot the ROC curve
+roc(Data_Modify$MeltdownNC,lda.pred1$posterior[,1],auc = TRUE)
+plot(roc(Data_Modify$MeltdownNC,lda.pred1$posterior[,1]),legacy.axes = TRUE)
+#LDA2<-plot(roc(Data_Modify$MD,lda.pred1$posterior[,1]),legacy.axes = TRUE)
+```
+
+```{r echo=FALSE}
+pairs(Data_Modify[,-c(1,10,11)])
+```
+
+```{r echo=FALSE}
+# Support Vector Machines-radial kernel, 50% data for training set, 50% for testing set
+#95% confidence level
+set.seed(1)
+library('e1071')
+Number<-1:50
+train<-sample(Number,25)
+training_data<-Data_Modify[train,]
+testing_data<-Data_Modify[-train,]
+tune.out<-tune(svm,MeltdownNC~CH+CD+relevel(FT,ref=5)+relevel(CL,ref = 4)+LC+HU,data=training_data,kernel="radial", ranges=list(cost=c(0.1,1,5,10,100,1000),gamma=c(0.5,1,2,3,4,5)),decision.values=T)
+summary(tune.out)
+table(true=testing_data$MeltdownNC,pred=predict(tune.out$best.model,newdata = testing_data))
+pred=predict(tune.out$best.model,newdata = testing_data)
+fitted<-attributes(predict(tune.out$best.model,training_data,decision.values = TRUE))$decision.values
+roc(testing_data$MeltdownNC,fitted,auc = TRUE)
+plot(roc(testing_data$MeltdownNC,fitted),legacy.axes = TRUE)
+# plot the ROC curve
+#library('ROCR')
+#rocplot=function(pred,truth,...){
+  #predob=prediction(pred,truth)
+  #perf=performance(predob, "tpr","fpr")
+  #plot(perf,...)
+#}
+#fitted<-attributes(predict(tune.out$best.model,training_data,decision.values = TRUE))$decision.values
+#rocplot(fitted,training_data$MeltdownNC,main="Training Data")
+# fitted<-attributes(predict(tune.out$best.model,testing_data,decision.values = TRUE))$decision.values
+# rocplot(fitted,testing_data$MeltdownNC,main="Testing Data")
+#SVM1<-rocplot(fitted,testing_data$MeltdownNC,main="Testing Data")
+```
+
+```{r echo=FALSE}
+# Support Vector Machines-radial kernel, 50% data for training set, 50% for testing set
+#98% confidence level
+set.seed(1)
+library('e1071')
+Number<-1:50
+train<-sample(Number,25)
+training_data<-Data_Modify[train,]
+testing_data<-Data_Modify[-train,]
+tune.out1<-tune(svm,MeltdownNC~CH+relevel(CL,ref = 4)+LC+HU,data=training_data,kernel="radial", ranges=list(cost=c(0.1,1,5,10,100,1000),gamma=c(0.5,1,2,3,4,5),decision.values=T))
+summary(tune.out1)
+table(true=testing_data$MeltdownNC,pred=predict(tune.out1$best.model,newdata = testing_data))
+fitted1<-attributes(predict(tune.out1$best.model,training_data,decision.values = TRUE))$decision.values
+roc(testing_data$MeltdownNC,fitted1,auc = TRUE)
+plot(roc(testing_data$MeltdownNC,fitted1),legacy.axes = TRUE)
+# plot the ROC curve
+# library('ROCR')
+# rocplot=function(pred,truth,...){
+#   predob=prediction(pred,truth)
+#   perf=performance(predob, "tpr","fpr")
+#   plot(perf,...)
+# }
+# #fitted1<-attributes(predict(tune.out1$best.model,training_data,decision.values = TRUE))$decision.values
+# #rocplot(fitted1,training_data$MeltdownNC,main="Training Data")
+# fitted11<-attributes(predict(tune.out1$best.model,testing_data,decision.values = TRUE))$decision.values
+# rocplot(fitted11,testing_data$MeltdownNC,main="Testing Data")
+# #SVM2<-rocplot(fitted11,testing_data$MeltdownNC,main="Testing Data")
+```
+
+```{r echo=FALSE}
+# Comparison of ROC plots for liberal models
+####in roc() the first arguement is the real outcome, the second arguement is the predicted value or outcome
+LR_ROC<-roc(Data_Modify$MeltdownNC,glm.probs)
+SVM_ROC<-roc(testing_data$MeltdownNC,fitted)
+LDA_ROC<-roc(Data_Modify$MeltdownNC,lda.pred$posterior[,1])
+plot(LR_ROC,legacy.axes=TRUE)
+plot(SVM_ROC,add = TRUE, col="red")
+plot(LDA_ROC,add=TRUE,col="blue")
+legend("topright",legend = c("Logistic Regression","SVM","LDA"),col = c("black","red","blue"),pch=19)
+```
+
+```{r echo=FALSE}
+# Comparison of ROC plots for conservative model
+####in roc() the first arguement is the real outcome, the second arguement is the predicted value or outcome
+LR_ROC<-roc(Data_Modify$MeltdownNC,glm.probs1)
+SVM_ROC<-roc(testing_data$MeltdownNC,fitted1)
+LDA_ROC<-roc(Data_Modify$MeltdownNC,lda.pred1$posterior[,1])
+plot(LR_ROC,legacy.axes=TRUE)
+plot(SVM_ROC,add = TRUE, col="red")
+plot(LDA_ROC,add=TRUE,col="blue")
+legend("topright",legend = c("Logistic Regression","SVM","LDA"),col = c("black","red","blue"),pch=19)
+```
+
+
+
+
+
+
+
+
+
